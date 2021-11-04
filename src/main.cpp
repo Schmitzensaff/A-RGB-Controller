@@ -23,6 +23,13 @@
 
 //------------Отладошное-----------------
 #define I2C_LCD_ADDRESS 0x27 // I2C адрес дисплея
+#define COLS 20 // Cols
+#define ROWS 4 // ROWS
+//---------------------------------------
+
+
+//---------------Меню--------------------
+
 //---------------------------------------
 
 
@@ -30,15 +37,15 @@
 #include <Arduino.h> // Стандартка для пердуины
 #include <FastLED.h> // Работа с адреской
 #include <LiquidCrystal_I2C.h> // Дисплей
-#include <GyverEncoder.h> // Энкодер
+#include <LiquidCrystal_I2C_Menu.h>
 #include <Wire.h> // Надо
 //---------------------------------------
 
 CRGB leds[LED_NUM]; // Колво светоидиотов
-LiquidCrystal_I2C lcd(I2C_LCD_ADDRESS,20,4);
-Encoder enc(ENC_CLK, ENC_DT, ENC_SW, ENC_TYPE); // Инициализируем энкодер
+LiquidCrystal_I2C_Menu lcd(I2C_LCD_ADDRESS,COLS,ROWS);
 
 
+int x = 0;
 
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
 float getThermTemp(int resistance){
@@ -51,19 +58,45 @@ float getThermTemp(int resistance){
   return thermistor;
 }
 
+enum {mkBack, mkRoot, mkStrip, mkStripStatus, mkStripMode, mkStripColor, mkStripSpeed, mkRing, mkRingStatus, mkRingMode, mkRingColor, mkRingSpeed, mkLMusic, mkLMusicStatus, mkLMusicMode, mkLMusicColor, mkLMusicSpeed};
 
-
+sMenuItem menu[] = {
+  {mkBack, mkRoot, "A-RGB"},
+    {mkRoot, mkStrip, "Strip"},
+      {mkStrip, mkStripStatus, "Status:"},
+      {mkStrip, mkStripMode, "Mode:"},
+      {mkStrip, mkStripColor, "Color"},
+      {mkStrip, mkStripSpeed, "Speed"},
+      {mkStrip, mkBack, "Back"},
+    {mkRoot, mkRing, "Ring"},
+      {mkRing, mkRingStatus, "Status:"},
+      {mkRing, mkRingMode, "Mode:"},
+      {mkRing, mkRingColor, "Color"},
+      {mkRing, mkRingSpeed, "Speed"},
+      {mkRing, mkBack, "Back"},
+    {mkRoot, mkLMusic, "LMusic"},
+      {mkLMusic, mkLMusicStatus, "Status:"},
+      {mkLMusic, mkLMusicMode, "Mode:"},
+      {mkLMusic, mkLMusicColor, "Color"},
+      {mkLMusic, mkLMusicSpeed, "Speed"},
+      {mkLMusic, mkBack, "Back"}
+};
+uint8_t menuLen = sizeof(menu) / sizeof(sMenuItem);
 void setup() {
   Serial.begin(9600);
   Serial.println("Connection Successful");
-  lcd.init();
+  lcd.begin();
   lcd.backlight();
+  lcd.clear();
+  lcd.attachEncoder(ENC_DT, ENC_CLK, ENC_SW);
   FastLED.addLeds<LED_TYPE, LED_PIN, GRB>(leds, LED_NUM); // Хз че за херня, но нужно 
  
 }
 
 
 void loop() {
+  eEncoderState EncoderState = lcd.getEncoderState();
+    uint8_t selectedMenuItem = lcd.showMenu(menu, menuLen, 1);
   FastLED.setBrightness(map(analogRead(PHOTO), 0, 1023, 0, 255)); // Уровень яркости
   byte RGB_R = 0, RGB_G = 0, RGB_B = 0; // переменные цветов
   leds[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
