@@ -4,17 +4,25 @@
 #define RESIST_BASE 10000   // сопротивление при TEMP_BASE градусах по Цельсию (Ом)
 #define TEMP_BASE 25        // температура, при которой измерено RESIST_BASE (градусов Цельсия)
 #define B_COEF 3435         // бета коэффициент термистора (3000-4000)
+#define LED_NUM 50 // Колво светоидиотов
+#define LED_TYPE WS2812 // тип ленты
 //---------------------------------------
 
 
 //--------------Пины---------------------
 #define THERM A0 //Вместо A0 указ. анал.пин
-#define ARGB_strip 5 // Пин ленты
+#define LED_PIN 5 // Пин ленты
 #define ARGB_round 6 // Пин колец
 #define ARGB_LMusic 7 // Пин Свет-ки
 #define ENC_CLK 2 // Пин энка CLK
 #define ENC_DT 3 // Пин энка DT 
 #define ENC_SW 4 // Пин энка SW
+#define PHOTO A1 // Пин фоторез.
+//---------------------------------------
+
+
+//------------Отладошное-----------------
+#define I2C_LCD_ADDRESS 0x27 // I2C адрес дисплея
 //---------------------------------------
 
 
@@ -23,16 +31,31 @@
 #include <FastLED.h> // Работа с адреской
 #include <GyverEncoder.h> // Библа энкодера
 #include <LiquidCrystal_I2C.h> // Дисплей
+#include <Wire.h> // Надо
 //---------------------------------------
 
-Encoder enc(ENC_CLK, ENC_DT, ENC_SW, ENC_TYPE);
+CRGB leds[LED_NUM]; // Колво светоидиотов
+Encoder enc(ENC_CLK, ENC_DT, ENC_SW, ENC_TYPE); // Инициализируем энкодер
+LiquidCrystal_I2C lcd(I2C_LCD_ADDRESS,20,4);
+
 void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  FastLED.addLeds<LED_TYPE, LED_PIN, GRB>(leds, LED_NUM); // Хз че за херня, но нужно  
   Serial.begin(9600);
+  Serial.println("Connection Successful");
 }
 
+
 void loop() {
-  
+  FastLED.setBrightness(map(analogRead(PHOTO), 0, 1023, 0, 255)); // Уровень яркости
+  byte RGB_R = 0, RGB_G = 0, RGB_B = 0; // переменные цветов
+  leds[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
+  FastLED.show(); // Выводим массив на ленту
+  delay(30); // FPS
 }
+
 
 
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
