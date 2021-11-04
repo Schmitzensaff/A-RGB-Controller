@@ -29,22 +29,37 @@
 //---------------Библы-------------------
 #include <Arduino.h> // Стандартка для пердуины
 #include <FastLED.h> // Работа с адреской
-#include <GyverEncoder.h> // Библа энкодера
 #include <LiquidCrystal_I2C.h> // Дисплей
+#include <GyverEncoder.h> // Энкодер
 #include <Wire.h> // Надо
 //---------------------------------------
 
 CRGB leds[LED_NUM]; // Колво светоидиотов
-Encoder enc(ENC_CLK, ENC_DT, ENC_SW, ENC_TYPE); // Инициализируем энкодер
 LiquidCrystal_I2C lcd(I2C_LCD_ADDRESS,20,4);
+Encoder enc(ENC_CLK, ENC_DT, ENC_SW, ENC_TYPE); // Инициализируем энкодер
+
+
+
+// Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
+float getThermTemp(int resistance){
+  float thermistor;
+  thermistor = RESIST_10K / ((float)1023 / resistance - 1);
+  thermistor /= RESIST_BASE;                        // (R/Ro)
+  thermistor = log(thermistor) / B_COEF;            // 1/B * ln(R/Ro)
+  thermistor += (float)1.0 / (TEMP_BASE + 273.15);  // + (1/To)
+  thermistor = (float)1.0 / thermistor - 273.15;    // инвертируем и конвертируем в градусы по Цельсию
+  return thermistor;
+}
+
+
 
 void setup() {
-  lcd.init();
-  lcd.backlight();
-  lcd.setCursor(0, 0);
-  FastLED.addLeds<LED_TYPE, LED_PIN, GRB>(leds, LED_NUM); // Хз че за херня, но нужно  
   Serial.begin(9600);
   Serial.println("Connection Successful");
+  lcd.init();
+  lcd.backlight();
+  FastLED.addLeds<LED_TYPE, LED_PIN, GRB>(leds, LED_NUM); // Хз че за херня, но нужно 
+ 
 }
 
 
@@ -54,17 +69,4 @@ void loop() {
   leds[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
   FastLED.show(); // Выводим массив на ленту
   delay(30); // FPS
-}
-
-
-
-// Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
-float getThermTemp(int resistance) {
-  float thermistor;
-  thermistor = RESIST_10K / ((float)1023 / resistance - 1);
-  thermistor /= RESIST_BASE;                        // (R/Ro)
-  thermistor = log(thermistor) / B_COEF;            // 1/B * ln(R/Ro)
-  thermistor += (float)1.0 / (TEMP_BASE + 273.15);  // + (1/To)
-  thermistor = (float)1.0 / thermistor - 273.15;    // инвертируем и конвертируем в градусы по Цельсию
-  return thermistor;
 }
