@@ -49,7 +49,7 @@
 
 CRGB led1[STRIP_LED_NUM]; // Массив на ленту(Вроде)
 CRGB led2[RING_LED_NUM]; // Массив на кольцо(Вроде)
-CRGB led3[LMUSIC_LED_NUM]; // Массив на светомузыку(Вроде)
+// CRGB led3[LMUSIC_LED_NUM]; // Массив на светомузыку(Вроде)
 LiquidCrystal_I2C_Menu lcd(I2C_LCD_ADDRESS,COLS,ROWS);
 
 int x = 0;
@@ -64,6 +64,10 @@ boolean brightnessStatus = 0;
 byte RGB_R = 0, RGB_G = 0, RGB_B = 0;
 byte RGB_R_R = 0, RGB_G_R = 0, RGB_B_R = 0;
 byte RGB_R_LM = 0, RGB_G_LM = 0, RGB_B_LM = 0; 
+int ihueS = 0;
+int idexS = 0;
+int thisat = 255;
+int thisdelay = 20;
 //---------------------------------
 
 
@@ -110,43 +114,62 @@ sMenuItem menu[] = {
       {mkRing, mkRingSpeed, "Speed"},
       {mkRing, mkRingBrightness, "Brightness"},
       {mkRing, mkBack, "Back"},
-    {mkRoot, mkLMusic, "LMusic"},
+    /*{mkRoot, mkLMusic, "LMusic"},
       {mkLMusic, mkLMusicStatus, "Status:"},
       {mkLMusic, mkLMusicMode, "Mode:"},
       {mkLMusic, mkLMusicColor, "Color"},
       {mkLMusic, mkLMusicSpeed, "Speed"},
       {mkLMusic, mkLMusicBrightness, "Brightness"},
-      {mkLMusic, mkBack, "Back"}
+      {mkLMusic, mkBack, "Back"}*/
 };
 //----------------------------------
+void setPixelStrip (int Pixel, byte red, byte green, byte blue) {// Присваиваем значения ленте
+    led1[Pixel].r = red;
+    led1[Pixel].g = green;
+    led1[Pixel].b = blue;
 
-unsigned long timing;
-// Логический модуль светоидиотов
-void stripRainbow(){
-  led1[0].setRGB(255, 0, 0);
-  FastLED.show();
-  if (millis() - timing > 500){ // Вместо 10000 подставьте нужное вам значение паузы 
-  timing = millis(); 
-  };
 }
+void setPixelRing (int Pixel, byte red, byte green, byte blue) { // Присваиваем значения кольцам
+    led2[Pixel].r = red;
+    led2[Pixel].g = green;
+    led2[Pixel].b = blue;
+
+}
+// Логический модуль светоидиотов
+void stripRainbow(byte red, byte green, byte blue, int SpeedDelay){
+  int Pixel = random(STRIP_LED_NUM); // Определяем, какой светоидиот загорится
+  setPixelStrip(Pixel,red,green,blue); // отправляем  Значения на логмодуль
+  FastLED.show();
+  delay(SpeedDelay); // делей
+  setPixelStrip(Pixel,0,0,0); // Гасим
+}
+
 void stripStatic(){
   led1[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
-  return;
+  FastLED.show();
+    delay(30); // FPS
+    return;
 }
 void strip(){
   switch(stripMode){ // Выбор режима работы
-    case 0: stripRainbow();
+    case 0: stripRainbow(random(255), random(255), random(255), 0); //Отправляем значения
     break;
     case 1: stripStatic();
     break;
   }
   return;
 }
-void ringRainbow(){
-
+void ringRainbow(byte red, byte green, byte blue, int SpeedDelay){
+  int Pixel = random(ARGB_round);
+  setPixelStrip(Pixel,red,green,blue);
+  FastLED.show();
+  delay(SpeedDelay);
+  setPixelStrip(Pixel,0,0,0);
 }
 void ringStatic(){
   led2[0].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Присваиваем статическое значение
+  FastLED.show();
+    delay(30); // FPS
   return;
 }
 
@@ -158,6 +181,9 @@ void ringTemp(){
   for(int led = 0; led < val; led++) { 
             led2[led].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Цикл
   };
+  FastLED.show();
+    delay(30); // FPS
+    return;
 }
 
 void ring(){ 
@@ -166,7 +192,7 @@ void ring(){
     break;
     case 1: ringStatic();
     break;
-    case 2: ringRainbow();
+    case 2: ringRainbow(random(255), random(255), random(255), 0);
     break;
   }
  return;
@@ -180,15 +206,15 @@ void setup() {
   lcd.backlight();
   lcd.clear();
   lcd.attachEncoder(ENC_DT, ENC_CLK, ENC_SW);
-  FastLED.addLeds<STRIP_LED_TYPE, LED_PIN, GRB>(led1, STRIP_LED_NUM); // Инициализация ленты(Вроде) 
-  FastLED.addLeds<RING_LED_TYPE, ARGB_round, GRB>(led2, RING_LED_NUM); // Инициализация колец(Вроде)
-  FastLED.addLeds<LMUSIC_LED_TYPE,ARGB_LMusic, GRB>(led3, LMUSIC_LED_NUM); // Инициализация светомузыки(Вроде)
+  FastLED.addLeds<STRIP_LED_TYPE, LED_PIN, GRB>(led1, STRIP_LED_NUM).setCorrection( TypicalLEDStrip );; // Инициализация ленты(Вроде) 
+  FastLED.addLeds<RING_LED_TYPE, ARGB_round, GRB>(led2, RING_LED_NUM).setCorrection( TypicalLEDStrip );; // Инициализация колец(Вроде)
+  // FastLED.addLeds<LMUSIC_LED_TYPE,ARGB_LMusic, GRB>(led3, LMUSIC_LED_NUM); // Инициализация светомузыки(Вроде)
 }
 
 
 void loop() {
   map(brightnessMenu, 0, 255, 0, 100);                      // Яркость
-    if (brightnessStatus = true){
+    if (brightnessStatus == true){
       brightness = map(analogRead(PHOTO), 0, 1023, 0, 255);
     } else{
       brightness = map(brightnessMenu, 0, 100, 0, 255); 
@@ -196,9 +222,8 @@ void loop() {
   FastLED.setBrightness(brightness); // Уровень яркости
   eEncoderState EncoderState = lcd.getEncoderState();
     uint8_t selectedMenuItem = lcd.showMenu(menu, menuLen, 1);
-    strip();
-    ring();
-    FastLED.show();
-    delay(30); // FPS
+   if (StripStatus == 1) strip();
+    if (RingStatus == 1) ring();
+    
   
 }
