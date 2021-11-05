@@ -4,8 +4,12 @@
 #define RESIST_BASE 10000   // сопротивление при TEMP_BASE градусах по Цельсию (Ом)
 #define TEMP_BASE 25        // температура, при которой измерено RESIST_BASE (градусов Цельсия)
 #define B_COEF 3435         // бета коэффициент термистора (3000-4000)
-#define LED_NUM 50 // Колво светоидиотов
-#define LED_TYPE WS2812 // тип ленты
+#define STRIP_LED_NUM 50 // Колво светоидиотов
+#define RING_LED_NUM 20 // Колво светодиодов в кольцах
+#define LMUSIC_LED_NUM 70 // Колво светодиодов в светомузыке.
+#define STRIP_LED_TYPE WS2812 // тип светодиодов в ленте
+#define RING_LED_TYPE WS2812 // тип светодиодов в кольцах
+#define LMUSIC_LED_TYPE WS2812 // тип светодиодов в светомузыке
 //---------------------------------------
 
 
@@ -41,11 +45,33 @@
 #include <Wire.h> // Надо
 //---------------------------------------
 
-CRGB leds[LED_NUM]; // Колво светоидиотов
+CRGB led1[STRIP_LED_NUM]; // Массив на ленту(Вроде)
+CRGB led2[RING_LED_NUM]; // Массив на кольцо(Вроде)
+CRGB led3[LMUSIC_LED_NUM]; // Массив на светомузыку(Вроде)
 LiquidCrystal_I2C_Menu lcd(I2C_LCD_ADDRESS,COLS,ROWS);
 
 
 int x = 0;
+// Яркость
+byte brightness = 0;
+byte brightnessMenu = 0;
+boolean brightnessStatus = 0;
+//---------------------------------
+
+
+// переменные цветов
+byte RGB_R = 0, RGB_G = 0, RGB_B = 0;
+byte RGB_R_R = 0, RGB_G_R = 0, RGB_B_R = 0;
+byte RGB_R_LM = 0, RGB_G_LM = 0, RGB_B_LM = 0; 
+//---------------------------------
+
+
+// Состояние  on/off
+boolean StripStatus = 0;
+boolean RingStatus = 0;
+boolean LMusicStatus = 0;
+//---------------------------------
+
 
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
 float getThermTemp(int resistance){
@@ -57,8 +83,11 @@ float getThermTemp(int resistance){
   thermistor = (float)1.0 / thermistor - 273.15;    // инвертируем и конвертируем в градусы по Цельсию
   return thermistor;
 }
+//---------------------------------
 
-enum {mkBack, mkRoot, mkStrip, mkStripStatus, mkStripMode, mkStripColor, mkStripSpeed, mkRing, mkRingStatus, mkRingMode, mkRingColor, mkRingSpeed, mkLMusic, mkLMusicStatus, mkLMusicMode, mkLMusicColor, mkLMusicSpeed};
+
+// Иерархия меню.
+enum {mkBack, mkRoot, mkStrip, mkStripStatus, mkStripMode, mkStripColor, mkStripSpeed, mkStripBrightness, mkRing, mkRingStatus, mkRingMode, mkRingColor, mkRingSpeed, mkRingBrightness, mkLMusic, mkLMusicStatus, mkLMusicMode, mkLMusicColor, mkLMusicSpeed, mkLMusicBrightness};
 
 sMenuItem menu[] = {
   {mkBack, mkRoot, "A-RGB"},
@@ -67,20 +96,38 @@ sMenuItem menu[] = {
       {mkStrip, mkStripMode, "Mode:"},
       {mkStrip, mkStripColor, "Color"},
       {mkStrip, mkStripSpeed, "Speed"},
+      {mkStrip, mkStripBrightness, "Brightness"},
       {mkStrip, mkBack, "Back"},
     {mkRoot, mkRing, "Ring"},
       {mkRing, mkRingStatus, "Status:"},
       {mkRing, mkRingMode, "Mode:"},
       {mkRing, mkRingColor, "Color"},
       {mkRing, mkRingSpeed, "Speed"},
+      {mkRing, mkRingBrightness, "Brightness"},
       {mkRing, mkBack, "Back"},
     {mkRoot, mkLMusic, "LMusic"},
       {mkLMusic, mkLMusicStatus, "Status:"},
       {mkLMusic, mkLMusicMode, "Mode:"},
       {mkLMusic, mkLMusicColor, "Color"},
       {mkLMusic, mkLMusicSpeed, "Speed"},
+      {mkLMusic, mkLMusicBrightness, "Brightness"},
       {mkLMusic, mkBack, "Back"}
 };
+//----------------------------------
+
+
+// Логический модуль светоидиотов
+void strip(){
+  led1[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
+  FastLED.show(); // Выводим массив на лентy
+  return;
+}
+void ring(){
+ led2[0].setRGB(RGB_R_R, RGB_G_R, RGB_B_R);
+ FastLED.show();
+ return;
+}
+//---------------------------------
 uint8_t menuLen = sizeof(menu) / sizeof(sMenuItem);
 void setup() {
   Serial.begin(9600);
@@ -89,17 +136,24 @@ void setup() {
   lcd.backlight();
   lcd.clear();
   lcd.attachEncoder(ENC_DT, ENC_CLK, ENC_SW);
-  FastLED.addLeds<LED_TYPE, LED_PIN, GRB>(leds, LED_NUM); // Хз че за херня, но нужно 
- 
+  FastLED.addLeds<STRIP_LED_TYPE, LED_PIN, GRB>(led1, STRIP_LED_NUM); // Инициализация ленты(Вроде) 
+  FastLED.addLeds<RING_LED_TYPE, ARGB_round, GRB>(led2, RING_LED_NUM); // Инициализация колец(Вроде)
+  FastLED.addLeds<LMUSIC_LED_TYPE,ARGB_LMusic, GRB>(led3, LMUSIC_LED_NUM); // Инициализация светомузыки(Вроде)
 }
 
 
 void loop() {
+  map(brightnessMenu, 0, 255, 0, 100);                      // Яркость
+    if (brightnessStatus = 1){
+      brightness = map(analogRead(PHOTO), 0, 1023, 0, 255);
+    } else{
+      brightness = map(brightnessMenu, 0, 100, 0, 255); 
+    }
+  FastLED.setBrightness(brightness); // Уровень яркости
   eEncoderState EncoderState = lcd.getEncoderState();
     uint8_t selectedMenuItem = lcd.showMenu(menu, menuLen, 1);
-  FastLED.setBrightness(map(analogRead(PHOTO), 0, 1023, 0, 255)); // Уровень яркости
-  byte RGB_R = 0, RGB_G = 0, RGB_B = 0; // переменные цветов
-  leds[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
-  FastLED.show(); // Выводим массив на ленту
-  delay(30); // FPS
+    strip();
+    ring();
+    delay(30); // FPS
+  
 }
