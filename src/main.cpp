@@ -5,11 +5,13 @@
 #define TEMP_BASE 25        // температура, при которой измерено RESIST_BASE (градусов Цельсия)
 #define B_COEF 3435         // бета коэффициент термистора (3000-4000)
 #define STRIP_LED_NUM 50 // Колво светоидиотов
-#define RING_LED_NUM 20 // Колво светодиодов в кольцах
+#define RING_LED_NUM 45 // Колво светодиодов в кольцах
 #define LMUSIC_LED_NUM 70 // Колво светодиодов в светомузыке.
 #define STRIP_LED_TYPE WS2812 // тип светодиодов в ленте
 #define RING_LED_TYPE WS2812 // тип светодиодов в кольцах
 #define LMUSIC_LED_TYPE WS2812 // тип светодиодов в светомузыке
+#define CS_TEMP_MIN 25 // Минимальная темп в корпусе
+#define CS_TEMP_MAX 60 // Максимальная темп в корпусе
 //---------------------------------------
 
 
@@ -50,7 +52,6 @@ CRGB led2[RING_LED_NUM]; // Массив на кольцо(Вроде)
 CRGB led3[LMUSIC_LED_NUM]; // Массив на светомузыку(Вроде)
 LiquidCrystal_I2C_Menu lcd(I2C_LCD_ADDRESS,COLS,ROWS);
 
-
 int x = 0;
 // Яркость
 byte brightness = 0;
@@ -71,6 +72,10 @@ boolean StripStatus = 0;
 boolean RingStatus = 0;
 boolean LMusicStatus = 0;
 //---------------------------------
+
+
+// Режимы
+byte ringMode = constrain(ringMode, 0, 2);
 
 
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
@@ -119,12 +124,35 @@ sMenuItem menu[] = {
 // Логический модуль светоидиотов
 void strip(){
   led1[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
-  FastLED.show(); // Выводим массив на лентy
   return;
 }
-void ring(){
- led2[0].setRGB(RGB_R_R, RGB_G_R, RGB_B_R);
- FastLED.show();
+void ringRainbow(){
+
+}
+void ringStatic(){
+  led2[0].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Присваиваем статическое значение
+  return;
+}
+
+// Температурный режим
+void ringTemp(){
+  byte val = (getThermTemp(analogRead(THERM))); // Получаем температуру в цельсии
+  val = constrain(val, CS_TEMP_MIN, CS_TEMP_MAX); // Ограничиваем
+  map(val, CS_TEMP_MIN, CS_TEMP_MAX, 0, ARGB_round); // Конвертируем диапазон
+  for(int led = 0; led < val; led++) { 
+            led2[led].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Цикл
+  };
+}
+
+void ring(){ 
+  switch(ringMode){ // Выбор режима работы
+    case 0: ringTemp();
+    break;
+    case 1: ringStatic();
+    break;
+    case 2: ringRainbow();
+    break;
+  }
  return;
 }
 //---------------------------------
@@ -144,7 +172,7 @@ void setup() {
 
 void loop() {
   map(brightnessMenu, 0, 255, 0, 100);                      // Яркость
-    if (brightnessStatus = 1){
+    if (brightnessStatus = true){
       brightness = map(analogRead(PHOTO), 0, 1023, 0, 255);
     } else{
       brightness = map(brightnessMenu, 0, 100, 0, 255); 
@@ -154,6 +182,7 @@ void loop() {
     uint8_t selectedMenuItem = lcd.showMenu(menu, menuLen, 1);
     strip();
     ring();
+    FastLED.show();
     delay(30); // FPS
   
 }
