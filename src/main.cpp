@@ -76,7 +76,7 @@ boolean LMusicStatus = 0;
 
 // Режимы
 byte ringMode = constrain(ringMode, 0, 2);
-
+boolean stripMode;
 
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
 float getThermTemp(int resistance){
@@ -120,10 +120,26 @@ sMenuItem menu[] = {
 };
 //----------------------------------
 
-
+unsigned long timing;
 // Логический модуль светоидиотов
-void strip(){
+void stripRainbow(){
+  led1[0].setRGB(255, 0, 0);
+  FastLED.show();
+  if (millis() - timing > 500){ // Вместо 10000 подставьте нужное вам значение паузы 
+  timing = millis(); 
+  };
+}
+void stripStatic(){
   led1[0].setRGB(RGB_R, RGB_G, RGB_B);  // Хз че за херня, но нужно
+  return;
+}
+void strip(){
+  switch(stripMode){ // Выбор режима работы
+    case 0: stripRainbow();
+    break;
+    case 1: stripStatic();
+    break;
+  }
   return;
 }
 void ringRainbow(){
