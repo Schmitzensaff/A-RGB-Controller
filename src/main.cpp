@@ -1,4 +1,4 @@
-// Закончил на 309 строке. Делал меню.
+// Закончил на 378 строке.
 //------------Настройки------------------
 #define RESIST_10K 10000 // Вместо 10000 указ. точн. сопр. Резистора
 #define ENC_TYPE 1 // Тип энка
@@ -284,23 +284,30 @@ void ringRaindowRiver(){
 
 // Даем данные на ленты
 void strip1(){
+  if (StripStatus[0] == true){
   switch(stripMode[0]){ // Выбор режима работы
     case 0: stripRainbow(random(255), random(255), random(255), 0); //Отправляем значения
     break;
     case 1: stripStatic();
     break;
     case 2: stripRaindowRiver();
+    default: delay(0);
   }
+  }else{delay(0);}
   return;
 }
 void strip2(){
+  if (StripStatus[1] == true) {
   switch(stripMode[1]){ // Выбор режима работы
     case 0: stripRainbow(random(255), random(255), random(255), 0); //Отправляем значения
     break;
     case 1: stripStatic();
     break;
     case 2: strip2RainbowRiver();
+    default: delay(0);
+  
   }
+  }else{delay(0);}
   return;
 }
 
@@ -309,8 +316,10 @@ void strip2(){
 
 // Даем команды ленте и кольцам
 void strip(){
-  if (StripStatus[0] == 1) strip1();
-  if (StripStatus[1] == 1) strip2();
+  if (StripStatus[0] == 1) {strip1();
+}else{delay(0);}
+  if (StripStatus[1] == 1){ strip2();
+  }else{delay(0);}
 }
 void ring(){ 
   switch(ringMode){ // Выбор режима работы
@@ -358,12 +367,15 @@ void loop() {
       brightness = map(brightnessMenu, 0, 100, 0, 255); 
     
   FastLED.setBrightness(brightness); // Уровень яркости
+  strip();
+  if (RingStatus == 1){ring();
+  }else{delay(0);}
   eEncoderState EncoderState = lcd.getEncoderState();
     uint8_t selectedMenuItem = lcd.showMenu(menu, menuLen, 1);
 
-  strip();
-  if (RingStatus == 1) ring();
-   switch(selectedMenuItem){
+  
+  
+   switch(selectedMenuItem){ // попробовать заменить свитч на эльзеифы. YandereDev, привет. 
     case mkStripStatus1:{
       StripStatus[0] = lcd.inputVal<boolean>("Strip 1 status", 0, 1, StripStatus[0]);
       Serial.print(StripStatus[0]);
@@ -434,6 +446,7 @@ void loop() {
       Serial.print(brightnessMenu);
     }
     break;
+   default: delay(0);
    }
   
 }
