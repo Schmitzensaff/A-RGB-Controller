@@ -1,4 +1,4 @@
-// Логика готова.Осталось научить принимать массивы с переменными по CUM-порту
+// Массивы по CUM-порту парсит, теперь осталось перевести всё на единый массив
 //------------Настройки------------------
 #define RESIST_10K 10000 // Вместо 10000 указ. точн. сопр. Резистора
 #define RESIST_BASE 10000   // сопротивление при TEMP_BASE градусах по Цельсию (Ом)
@@ -11,6 +11,7 @@
 #define RING_LED_TYPE WS2812 // тип светодиодов в кольцах
 #define CS_TEMP_MIN 25 // Минимальная темп в корпусе
 #define CS_TEMP_MAX 60 // Максимальная темп в корпусе
+#define PARSE_AMOUNT 17         // число значений в массиве, который хотим получить
 //---------------------------------------
 
 
@@ -30,6 +31,7 @@
 #include <Arduino.h> // Стандартка для пердуины
 #include <FastLED.h> // Работа с адреской
 #include <Wire.h> // Надо
+#include <GParsingStream.h>
 //---------------------------------------
 
 CRGB led1[STRIP_LED_NUM]; // Массив на 1 ленту(Вроде)
@@ -39,7 +41,7 @@ CRGB ring1[RING_LED_NUM]; // Массив на 1 кольцо(Вроде)
 
 
 int x = 0;
- 
+int intData[PARSE_AMOUNT];     // массив численных значений после парсинга
 // Яркость
 byte brightness;
 byte brightnessMenu;
@@ -64,8 +66,8 @@ byte ringMode = constrain(ringMode, 0, 3);
 byte stripMode[2] = {constrain(stripMode[0], 0, 2), constrain(stripMode[1], 0, 2)};
 //----------------------------------
 
-uint8_t selectedMenuItem; 
 
+uint32_t parserTimer = 0;
 
 //----------------------------------
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
@@ -229,7 +231,7 @@ void ringStatic(){
   }
 }
 // Температурный режим
-/*void ringTemp(){
+void ringTemp(){
   byte val = (getThermTemp(analogRead(THERM))); // Получаем температуру в цельсии
   val = constrain(val, CS_TEMP_MIN, CS_TEMP_MAX); // Ограничиваем
   map(val, CS_TEMP_MIN, CS_TEMP_MAX, 0, ARGB_round); // Конвертируем диапазон
@@ -240,7 +242,7 @@ void ringStatic(){
     // delay(30); // FPS
     return;
 }
-*/
+ 
 byte counter3;
 void ringRaindowRiver(){
   
@@ -296,27 +298,22 @@ void strip2(){
 //=================================
 
 
-//Опрашиваем энкодер
-void EncoderVoid(){
-  
-  Serial.println("ENC");
-  } 
-
-//-------------------
 
 
-//Опрашиваем и выводим меню
-void informazion(){
-
-   }
-  
- /*void brightnessVoid(){
+ void brightnessVoid(){
+    if(brightnessStatus == 0){
+       FastLED.setBrightness(map(analogRead(PHOTO), 0, 1023, 0, 100));
+         
+    }else if(brightnessStatus == 1){
+      FastLED.setBrightness(brightness);
+      Serial.print("BTSL");
+      Serial.println(brightness);
+        Serial.print("BTS");
+        Serial.println(brightnessStatus);
+    }
+     // Уровень яркости
     
-  map(brightnessMenu, 0, 255, 0, 100);                      // Яркость
-      brightness = map(brightnessMenu, 0, 100, 0, 255); 
-      FastLED.setBrightness(75);// Уровень яркости
-      Serial.println("BTS");
-   }  */
+   }  
   
   
 void setup() {
@@ -332,50 +329,63 @@ void setup() {
 
 
 void loop() {
-if(Serial.available() > 0){
+  if(millis() - parserTimer >= 50){
+    parserTimer = millis();
   
+parsingStream((int*)&intData);
+if (dataReady()) {
+  Serial.println("SUKA");
+StripStatus[0] == constrain(intData[0], 0, 1);
+  StripStatus[1] == constrain(intData[1], 0, 1);
+  RingStatus == constrain(intData[2], 0, 1);
+  stripMode[0] == constrain(intData[3], 0, 2);
+  stripMode[1] == constrain(intData[4], 0, 2);
+  ringMode == constrain(intData[5], 0, 3);
+  RGB_R[0] == constrain(intData[6], 0, 255);
+  RGB_G[0] == constrain(intData[7], 0, 255);
+  RGB_B[0] == constrain(intData[8], 0, 255);
+  RGB_R[1] == constrain(intData[9], 0, 255);
+  RGB_G[1] == constrain(intData[10], 0, 255);
+  RGB_B[1] == constrain(intData[11], 0, 255);
+  RGB_R_R == constrain(intData[12], 0, 255);
+  RGB_G_R == constrain(intData[13], 0, 255);
+  RGB_B_R == constrain(intData[14], 0, 255);
+  brightnessStatus == constrain(intData[15], 0, 1);
+  brightness == constrain(intData[16], 0, 100);
 }
-
-Serial.println("MEN");
-// Устанавливаем Яркость
- // brightnessVoid();
- FastLED.setBrightness(75);
-//---------------------------------
-Serial.println("SUKA");
- if(StripStatus[0] == true && stripMode[0] == 1) stripStatic();
-Serial.println("SUKA2");
- if(StripStatus[0] == true && stripMode[0] == 0) stripRainbow();
-Serial.println("SUKA3");
-  stripRaindowRiver();
-Serial.println("SUKA4");
- if(StripStatus[1] == true && stripMode[1] == 1 ) stripStatic2();
-Serial.println("SUKA5");
- if(StripStatus[1] == true && stripMode[1] == 0) stripRainbow2();
-Serial.println("SUKA6");
- if(StripStatus[1] == true && stripMode[1] == 2 ) strip2RainbowRiver();
-Serial.println("SUKA7");
- if(RingStatus == true && ringMode == 1) ringStatic();
-Serial.println("SUKA8");
- if(RingStatus == true && ringMode == 0) ringRainbow();
-Serial.println("SUKA9");
-if(RingStatus == true && ringMode == 2) ringRaindowRiver();
-Serial.println("SUKA10");
-
-/*Serial.println("MEN4");
-if(millis() - strip1RaindowRiverModeTimer >= 5){
-  Serial.println("LED");
   }
-*/
-/*if (millis() - menuVarTimer >= 30){
-  menuVarTimer == millis();
+// Устанавливаем Яркость
+  brightnessVoid();
  
-}*/
+//---------------------------------
+
+ if(StripStatus[0] == true && stripMode[0] == 1) stripStatic();
+
+ if(StripStatus[0] == true && stripMode[0] == 0) stripRainbow();
+
+ //if(StripStatus[0] == true && stripMode[0] == 2) 
+ stripRaindowRiver();
+
+ if(StripStatus[1] == true && stripMode[1] == 1 ) stripStatic2();
+
+ if(StripStatus[1] == true && stripMode[1] == 0) stripRainbow2();
+
+ if(StripStatus[1] == true && stripMode[1] == 2 ) strip2RainbowRiver();
+
+ if(RingStatus == true && ringMode == 1) ringStatic();
+
+ if(RingStatus == true && ringMode == 0) ringRainbow();
+
+if(RingStatus == true && ringMode == 2) ringRaindowRiver();
+
+
+
     
-    Serial.println("MEN4");
+   
 
-    //EncoderVoid();
+    
 
-Serial.println("MEN5");
+
 
 
 //-----------------------------
