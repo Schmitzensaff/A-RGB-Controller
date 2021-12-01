@@ -1,7 +1,6 @@
-// Закончил на 378 строке.
+// Release 1.0
 //------------Настройки------------------
 #define RESIST_10K 10000 // Вместо 10000 указ. точн. сопр. Резистора
-#define ENC_TYPE 1 // Тип энка
 #define RESIST_BASE 10000   // сопротивление при TEMP_BASE градусах по Цельсию (Ом)
 #define TEMP_BASE 25        // температура, при которой измерено RESIST_BASE (градусов Цельсия)
 #define B_COEF 3435         // бета коэффициент термистора (3000-4000)
@@ -12,6 +11,7 @@
 #define RING_LED_TYPE WS2812 // тип светодиодов в кольцах
 #define CS_TEMP_MIN 25 // Минимальная темп в корпусе
 #define CS_TEMP_MAX 60 // Максимальная темп в корпусе
+#define PARSE_AMOUNT 17         // число значений в массиве, который хотим получить
 //---------------------------------------
 
 
@@ -20,39 +20,28 @@
 #define LED_PIN 5 // Пин 1 ленты
 #define LED2_PIN 6 // Пин 2 ленты
 #define ARGB_round 8 // Пин колец
-#define ENC_CLK 2 // Пин энка CLK
-#define ENC_DT 3 // Пин энка DT 
-#define ENC_SW 4 // Пин энка SW
 #define PHOTO A1 // Пин фоторез.
 //---------------------------------------
 
 
-//------------Отладошное-----------------
-#define I2C_LCD_ADDRESS 0x27 // I2C адрес дисплея
-#define COLS 20 // Cols
-#define ROWS 4 // ROWS
-//---------------------------------------
 
-
-//---------------Меню--------------------
-
-//---------------------------------------
 
 
 //---------------Библы-------------------
 #include <Arduino.h> // Стандартка для пердуины
 #include <FastLED.h> // Работа с адреской
-#include <LiquidCrystal_I2C_Menu.h>
 #include <Wire.h> // Надо
+#include <GParsingStream.h>
 //---------------------------------------
 
 CRGB led1[STRIP_LED_NUM]; // Массив на 1 ленту(Вроде)
 CRGB led2[STRIP_LED_NUM2]; // Массив на 2 ленту(Вроде)
 CRGB ring1[RING_LED_NUM]; // Массив на 1 кольцо(Вроде)
-LiquidCrystal_I2C_Menu lcd(I2C_LCD_ADDRESS,COLS,ROWS);
+
+
 
 int x = 0;
-uint8_t selectedMenuItem; 
+int intData[PARSE_AMOUNT];     // массив численных значений после парсинга
 // Яркость
 byte brightness;
 byte brightnessMenu;
@@ -78,24 +67,8 @@ byte stripMode[2] = {constrain(stripMode[0], 0, 2), constrain(stripMode[1], 0, 2
 //----------------------------------
 
 
-//Таймеры
-uint32_t menuSelectionTimer;
-uint32_t menuVarTimer;
-uint32_t encoderStatusTimer;
-uint32_t brightnessLevelTimer;
-uint32_t ringModeTimer;
-uint32_t ringRainbowModeTimer;
-uint32_t ringRaindowRiverModeTimer;
-uint32_t ringStaticModeTimer;
-uint32_t ringTempModeTimer;
-uint32_t strip1ModeTimer;
-uint32_t strip1RainbowModeTimer;
-uint32_t strip1RaindowRiverModeTimer;
-uint32_t strip1StaticModeTimer;
-uint32_t strip2ModeTimer;
-uint32_t strip2RainbowModeTimer;
-uint32_t strip2RaindowRiverModeTimer;
-uint32_t strip2StaticModeTimer;
+uint32_t parserTimer = 0;
+
 //----------------------------------
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
 float getThermTemp(int resistance){
@@ -111,45 +84,9 @@ float getThermTemp(int resistance){
 
 
 // Иерархия меню.
-enum {mkBack, mkRoot, mkStrip, mkStrip1, mkStrip2,  mkStripStatus1, mkStripMode1, mkStripColor1, mkStripColor1r, mkStripColor1g, mkStripColor1b, mkStripStatus2, mkStripMode2, mkStripColor2, mkStripColor2r,mkStripColor2g,mkStripColor2b, mkRing, mkRing1, mkRingStatus, mkRingMode, mkRingColor, mkRingColorr, mkRingColorg, mkRingColorb, mkBrightness, mkBrightnessStatus, mkBrightnessPercent };
 
-sMenuItem menu[] = {
-  {mkBack, mkRoot, "A-RGB"},
-    {mkRoot, mkStrip, "Strip"},
-      {mkStrip, mkStrip1, "Strip 1"},
-        {mkStrip1, mkStripStatus1, "Status", },
-        {mkStrip1, mkStripMode1, "Mode", },
-        {mkStrip1, mkStripColor1, "Color", },
-          {mkStripColor1, mkStripColor1r, "R", },
-          {mkStripColor1, mkStripColor1g, "G", },
-          {mkStripColor1, mkStripColor1b, "B", }, 
-          {mkStripColor1, mkBack, "Back",},
-        {mkStrip1, mkBack, "Back",},
-      {mkStrip, mkStrip2, "Strip 2"},
-        {mkStrip2, mkStripStatus2, "Status", },
-        {mkStrip2, mkStripMode2, "Mode", },
-        {mkStrip2, mkStripColor2, "Color",},
-          {mkStrip2, mkStripColor2r, "R", },
-          {mkStrip2, mkStripColor2g, "G", },
-          {mkStrip2, mkStripColor2b, "B", }, 
-          {mkStripColor2, mkBack, "Back",},
-        {mkStrip2, mkBack, "Back"},
-      {mkStrip, mkBack, "Back"},
-    {mkRoot, mkRing, "Ring"},
-      {mkRing, mkRingStatus, "Status", },
-        {mkRing, mkRingMode, "Mode",},
-        {mkRing, mkRingColor, "Color", },
-          {mkRingColor, mkRingColorr, "R", },
-          {mkRingColor, mkRingColorg, "G", },
-          {mkRingColor, mkRingColorb, "B", },
-          {mkRingColor, mkBack, "Back",}, 
-        {mkRing, mkBack, "Back"},
-    {mkRoot, mkBrightness, "Brightness", },
-      {mkBrightness, mkBrightnessStatus, "Status", },
-      {mkBrightness, mkBrightnessPercent, "Level", },
-      {mkBrightness, mkBack, "Back"},
-    
-};
+
+
 //----------------------------------
 void setPixelStrip (int Pixel, byte red, byte green, byte blue) {// Присваиваем значения ленте
     led1[Pixel].r = red;
@@ -170,25 +107,9 @@ void setPixelRing (int Pixel, byte red, byte green, byte blue) { // Присва
     ring1[Pixel].b = blue;
 
 }
-uint8_t menuLen = sizeof(menu) / sizeof(sMenuItem);
-int getItemIndexByKey(uint8_t key){
-  for (uint8_t i = 0; i < menuLen; i++)
-    if (menu[i].key == key)
-      return i;
-  return -1;
-}
 
-void updateCaption(uint8_t key, char format[], int value){
-  // key - ключ пункта меню, для которого обновляется навание
-  // format - шаблон названия со значением
-  // value - значение, добавляемое в название
-  uint8_t index = getItemIndexByKey(key);
-  char* buf = (char*) malloc(40);
-  sprintf(buf, format, value);
-  menu[index].caption = (char*) realloc(menu[index].caption, strlen(buf)+1);
-  strcpy(menu[index].caption, buf);
-  free(buf);
-}
+
+
 
 //----------------------------------
 //--Логический модуль светоидиотов--
@@ -199,8 +120,7 @@ void updateCaption(uint8_t key, char format[], int value){
 
 //Радужной режим
 void stripRainbow(){
-  if(StripStatus[0] == true && stripMode[0] == 0 && millis() - strip1RainbowModeTimer >= 300){
-    strip1RainbowModeTimer == millis();
+  
     byte red = random(255);
     byte green = random(255);
     byte blue = random(255);
@@ -210,11 +130,10 @@ void stripRainbow(){
     FastLED.show();
     // delay(SpeedDelay); // делей
     setPixelStrip(Pixel,0,0,0); // Гасим
-  }
+  
 }
 void stripRainbow2(){
-  if(StripStatus[1] == true && stripMode[1] == 0 && millis() - strip2RainbowModeTimer >= 300){
-    strip2RainbowModeTimer = millis();
+  
     byte red = random(255);
     byte green = random(255);
     byte blue = random(255);
@@ -224,15 +143,15 @@ void stripRainbow2(){
     FastLED.show();
     //delay(SpeedDelay); // делей
     setPixelStrip2(Pixel,0,0,0); // Гасим
-  }
+  
 }
 
 // Радужный поток
 byte counter;
 byte counter2;
 void stripRaindowRiver(){
-  if(StripStatus[0] == true && stripMode[0] == 2 && millis() - strip1RaindowRiverModeTimer >= 5){
-    strip1RaindowRiverModeTimer = millis();
+  //if(/*StripStatus[0] == true && stripMode[0] == 2 &&*/ millis() - strip1RaindowRiverModeTimer >= 5){
+    //strip1RaindowRiverModeTimer = millis();
     for (int i = 0; i < STRIP_LED_NUM; i++ ) {         // от 0 до первой трети
       led1[i] = CHSV(counter + i * 2, 255, 255);  // HSV. Увеличивать HUE (цвет)
       // умножение i уменьшает шаг радуги
@@ -240,13 +159,12 @@ void stripRaindowRiver(){
     counter++;        // counter меняется от 0 до 255 (тип данных byte)
     FastLED.show();
     Serial.println("Pizdets");
- // delay(5); 
+  
   }
-}
+//}
 
 void strip2RainbowRiver(){
-  if(StripStatus[1] == true && stripMode[1] == 2 && millis() - strip2RaindowRiverModeTimer >= 5){
-    strip2RaindowRiverModeTimer = millis();
+  
    for (int i = 0; i < STRIP_LED_NUM2; i++ ) {         // от 0 до первой трети
       led2[i] = CHSV(counter + i * 2, 255, 255);  // HSV. Увеличивать HUE (цвет)
      // умножение i уменьшает шаг радуги
@@ -254,32 +172,30 @@ void strip2RainbowRiver(){
     counter2++;        // counter меняется от 0 до 255 (тип данных byte)
     FastLED.show();
     // delay(5);
-  }
+  
 }
 
 
 
 // Статической режим
 void stripStatic(){
-  if(StripStatus[0] == true && stripMode[0] == 1 && millis() - strip1StaticModeTimer >= 30){
-    strip1StaticModeTimer = millis();
+  
     for (int i = 0; i < STRIP_LED_NUM; i++){
-    led1[i].setRGB(RGB_R[0], RGB_G[0], RGB_B[0]);  
+    led1[i].setRGB(intData[6], intData[7], intData[8]);  
     FastLED.show();
      // delay(30); // FPS
     }
     return;
-  }
+  
 }
 void stripStatic2(){
-  if(StripStatus[1] == true && stripMode[1] == 1 && millis() - strip2StaticModeTimer >= 30){
-    strip2StaticModeTimer = millis();
+  
     for (int i = 0; i < STRIP_LED_NUM2; i++){
-    led2[i].setRGB(RGB_R[1], RGB_G[1], RGB_B[1]);  
+    led2[i].setRGB(intData[9], intData[10], intData[11]);  
     FastLED.show();
     // delay(30); // FPS
     return;
-   }
+   
   }
 }
 //-----------------------
@@ -290,8 +206,7 @@ void stripStatic2(){
 
 // Радужной режим
 void ringRainbow(){
-  if(RingStatus == true && ringMode == 0 && millis() - ringModeTimer >= 300){
-    ringModeTimer == millis();
+  
     byte red = random(255);
     byte green = random(255);
     byte blue = random(255);
@@ -301,38 +216,36 @@ void ringRainbow(){
     FastLED.show();
     //delay(SpeedDelay);
     setPixelStrip(Pixel,0,0,0);
-  }
+  
 }
 
 // Статической режим
 void ringStatic(){
-  if(RingStatus == true && ringMode == 1 && millis() - ringStaticModeTimer >= 30){
-    ringStaticModeTimer == millis();
+  
     for (int i = 0; i < RING_LED_NUM; i++){
-      ring1[i].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Присваиваем статическое значение
+      ring1[i].setRGB(intData[12], intData[13], intData[14]); // Присваиваем статическое значение
       FastLED.show();
       //delay(30); // FPS
-    }
+    
   return;
   }
 }
 // Температурный режим
-/*void ringTemp(){
+void ringTemp(){
   byte val = (getThermTemp(analogRead(THERM))); // Получаем температуру в цельсии
   val = constrain(val, CS_TEMP_MIN, CS_TEMP_MAX); // Ограничиваем
   map(val, CS_TEMP_MIN, CS_TEMP_MAX, 0, ARGB_round); // Конвертируем диапазон
   for(int led = 0; led < val; led++) { 
-            ring1[led].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Цикл
+            ring1[led].setRGB(intData[12], intData[13], intData[14]); // Цикл
   };
   FastLED.show();
     // delay(30); // FPS
     return;
 }
-*/
+ 
 byte counter3;
 void ringRaindowRiver(){
-  if(RingStatus == true && ringMode == 2 && millis() - ringRaindowRiverModeTimer >= 5){
-    ringRaindowRiverModeTimer == millis();
+  
     for (int i = 0; i < ARGB_round; i++ ) {         // от 0 до первой трети
      ring1[i] = CHSV(counter + i * 2, 255, 255);  // HSV. Увеличивать HUE (цвет)
      // умножение i уменьшает шаг радуги
@@ -340,7 +253,7 @@ void ringRaindowRiver(){
     counter3++;        // counter меняется от 0 до 255 (тип данных byte)
     FastLED.show();
     // delay(5); 
-  }
+  
 }
 //------------------------------
 
@@ -383,175 +296,100 @@ void strip2(){
 //=================================
 //---------------------------------
 //=================================
-//Опрашиваем энкодер
-void Encoder(){
-  if (millis() - encoderStatusTimer >= 333) {
-    encoderStatusTimer = millis();
-  eEncoderState EncoderState = lcd.getEncoderState();
-  Serial.println("ENC");
-  } 
-}
-//-------------------
 
 
-//Опрашиваем и выводим меню
-void menuVoid(){
-  
-   
-   switch(selectedMenuItem){ // попробовать заменить свитч на эльзеифы. YandereDev, привет. 
-    case mkStripStatus1:{
-      StripStatus[0] = lcd.inputVal<boolean>("Strip 1 status", 0, 1, StripStatus[0]);
-      Serial.print(StripStatus[0]);
-    };
-    break;
-    case mkStripStatus2:{
-      StripStatus[1] = lcd.inputVal<boolean>("Strip 2 status", 0, 1, StripStatus[1]);
+
+
+ void brightnessVoid(){
+    if(intData[15] == 0){
+       FastLED.setBrightness(map(analogRead(PHOTO), 0, 1023, 0, 100));
+         
+    }else if(intData[15] == 1){
+      FastLED.setBrightness(intData[16]);
+      Serial.print("BTSL");
+      Serial.println(intData[16]);
+        Serial.print("BTS");
+        Serial.println(intData[15]);
     }
-    break;
-    case mkRingStatus:{
-      RingStatus = lcd.inputVal<boolean>("Ring status", 0, 1, RingStatus);
-    }
-    break;
-    case mkStripMode1:{
-      stripMode[0] = lcd.inputVal<byte>("Strip 1 mode", 0, 2, stripMode[0]);
-    }
-    break;
-    case mkStripMode2:{
-      stripMode[1] = lcd.inputVal<byte>("Strip 2 mode", 0, 2, stripMode[1]);
-    }
-    break;
-    case mkRingMode:{
-      ringMode = lcd.inputVal<byte>("Ring mode", 0, 3, ringMode);
-    }
-    break;
-    case mkStripColor1r:{
-      RGB_R[0] = lcd.inputVal<byte>("Strip 1 red color", 0, 255, RGB_R[0]);
-    }
-    break;
-    case mkStripColor2r:{
-      RGB_R[1] = lcd.inputVal<byte>("Strip 2 red color", 0, 255, RGB_R[1]);
-    }
-    break;
-    case mkRingColorr:{
-      RGB_R_R = lcd.inputVal<byte>("Ring red color", 0, 255, RGB_R_R);
-    }
-    break;
-    case mkStripColor1g:{
-      RGB_G[0] = lcd.inputVal<byte>("Strip 1 green color", 0, 255, RGB_G[0]);
-    }
-    break;
-    case mkStripColor2g:{
-      RGB_G[1] = lcd.inputVal<byte>("Strip 2 green color", 0, 255, RGB_G[1]);
-    }
-    break;
-    case mkRingColorg:{
-      RGB_G_R = lcd.inputVal<byte>("Ring green color", 0, 255, RGB_G_R);
-    }
-    break;
-    case mkStripColor1b:{
-      RGB_B[0] = lcd.inputVal<byte>("Strip 1 blue color", 0, 255, RGB_B[0]);
-    }
-    break;
-    case mkStripColor2b:{
-      RGB_B[1] = lcd.inputVal<byte>("Strip 2 blue color", 0, 255, RGB_B[1]);
-    }
-    break;
-    case mkRingColorb:{
-      RGB_B_R = lcd.inputVal<byte>("Ring blue color", 0, 255, RGB_B_R);
-    }
-    break;
-    case mkBrightnessStatus:{
-      brightnessStatus = lcd.inputVal<boolean>("Brightness mode", 0, 1, brightnessStatus);
-    }
-    break;
-    case mkBrightnessPercent:{
-      brightnessMenu = lcd.inputVal<byte>("Brightness level", 0, 100, brightnessMenu);
-      Serial.print(brightnessMenu);
-    }
-    break;
-   default: delay(0);
-   }
-   Serial.println("MEN3");
-   }
-  
-  void brightnessVoid(){
-     if (millis() - brightnessLevelTimer >= 5000) {
-    brightnessLevelTimer = millis();
-  map(brightnessMenu, 0, 255, 0, 100);                      // Яркость
-      brightness = map(brightnessMenu, 0, 100, 0, 255); 
-      FastLED.setBrightness(brightness);// Уровень яркости
-      Serial.println("BTS");
+     // Уровень яркости
+    
    }  
-  }
+  
+  
 void setup() {
   Serial.begin(9600);
   Serial.println("Connection Successful");
-  lcd.begin();
-  lcd.backlight();
-  lcd.clear();
-  lcd.attachEncoder(ENC_DT, ENC_CLK, ENC_SW);
-  lcd.attachIdleFunc(menuVoid);
-  lcd.attachIdleFunc(brightnessVoid);
-  lcd.attachIdleFunc(stripStatic);
-  lcd.attachIdleFunc(stripRainbow);
-  lcd.attachIdleFunc(stripRaindowRiver);
-  lcd.attachIdleFunc(stripStatic2);
-  lcd.attachIdleFunc(stripRainbow2);
-  lcd.attachIdleFunc(strip2RainbowRiver);
-  lcd.attachIdleFunc(ringStatic);
-  lcd.attachIdleFunc(ringRainbow);
-  lcd.attachIdleFunc(ringRaindowRiver);
   FastLED.addLeds<STRIP_LED_TYPE, LED_PIN, GRB>(led1, STRIP_LED_NUM).setCorrection( TypicalLEDStrip );; // Инициализация 1 ленты(Вроде) 
   FastLED.addLeds<STRIP_LED_TYPE, LED2_PIN, GRB>(led2, STRIP_LED_NUM2).setCorrection( TypicalLEDStrip );; // Инициализация 2 ленты(Вроде) 
   FastLED.addLeds<RING_LED_TYPE, ARGB_round, GRB>(ring1, RING_LED_NUM).setCorrection( TypicalLEDStrip );; // Инициализация 1 кольца(Вроде)
-  lcd.printAt(3, 1, "Schmitzensaff");
-  lcd.printAt(3, 2, "Electronics");
-  lcd.printAt(7, 0, "v.0.1 alpha");
+
   // FastLED.addLeds<LMUSIC_LED_TYPE,ARGB_LMusic, GRB>(led3, LMUSIC_LED_NUM); // Инициализация светомузыки(Вроде)
   
 }
 
 
 void loop() {
-Serial.println("MEN");
+  if(millis() - parserTimer >= 50){
+    parserTimer = millis();
+  
+parsingStream((int*)&intData);
+if (dataReady()) {
+  Serial.println("SUKA");
+  intData[0] == constrain(intData[0], 0, 1); // лента 1 статус
+  intData[1] == constrain(intData[1], 0, 1); // лента 2 статус
+  intData[2] == constrain(intData[2], 0, 1); // кольцо статус
+  intData[3] == constrain(intData[3], 0, 2); // лента 1 режим
+  intData[4] == constrain(intData[4], 0, 2); // лента 2 режим
+  intData[5] == constrain(intData[5], 0, 3); // кольцо режим
+  intData[6] == constrain(intData[6], 0, 255); // Лента 1 R
+  intData[7] == constrain(intData[7], 0, 255); // Лента 1 G
+  intData[8] == constrain(intData[8], 0, 255); // Лента 1 B
+  intData[9] == constrain(intData[9], 0, 255); // Лента 2 R
+  intData[10] == constrain(intData[10], 0, 255); // Лента 2 G
+  intData[11] == constrain(intData[11], 0, 255); // Лента 2 B
+  intData[12] == constrain(intData[12], 0, 255); // Кольцо R
+  intData[13] == constrain(intData[13], 0, 255); // Кольцо G
+  intData[14] == constrain(intData[14], 0, 255); // Кольцо B
+  intData[15] == constrain(intData[15], 0, 1); // Яркость режим
+  intData[16] == constrain(intData[16], 0, 100); // Яркость уровень
+}
+}
 // Устанавливаем Яркость
   brightnessVoid();
+ 
 //---------------------------------
-Serial.println("SUKA");
-  stripStatic();
-Serial.println("SUKA2");
-  stripRainbow();
-Serial.println("SUKA3");
-  stripRaindowRiver();
-Serial.println("SUKA4");
-  stripStatic2();
-Serial.println("SUKA5");
-  stripRainbow2();
-Serial.println("SUKA6");
-  strip2RainbowRiver();
-Serial.println("SUKA7");
-  ringStatic();
-Serial.println("SUKA8");
-  ringRainbow();
-Serial.println("SUKA9");
-ringRaindowRiver();
-Serial.println("SUKA10");
 
-/*Serial.println("MEN4");
-if(millis() - strip1RaindowRiverModeTimer >= 5){
-  Serial.println("LED");
-  }
-*/
+ if(intData[0] == 0 && intData[3] == 1) stripStatic();
+
+ if(intData[0] == 1 && intData[3] == 0) stripRainbow();
+
+ if(intData[0] == 1 && intData[3] == 2) stripRaindowRiver(); 
+
+
+ if(intData[1] == 1 && intData[4] == 1) stripStatic2();
+
+ if(intData[1] == 1 && intData[4] == 0) stripRainbow2();
+
+ if(intData[1] == 1 && intData[4] == 2) strip2RainbowRiver();
+
+ if(intData[2] == 1 && intData[5] == 1) ringStatic();
+
+ if(intData[2] == 1 && intData[5] == 0) ringRainbow();
+
+ if(intData[2] == 1 && intData[5] == 2) ringRaindowRiver();
+
+ if(intData[2] == 1 && intData[5] == 3) ringTemp();
+
+
+
 
 
     
-    selectedMenuItem = lcd.showMenu(menu, menuLen, 1);
+   
+
     
-    Serial.println("MEN4");
 
-    menuVoid();
 
-Serial.println("MEN5");
 
 
 //-----------------------------
