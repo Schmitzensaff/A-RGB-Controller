@@ -1,4 +1,4 @@
-// Массивы по CUM-порту парсит, теперь осталось перевести всё на единый массив
+// Release 1.0
 //------------Настройки------------------
 #define RESIST_10K 10000 // Вместо 10000 указ. точн. сопр. Резистора
 #define RESIST_BASE 10000   // сопротивление при TEMP_BASE градусах по Цельсию (Ом)
@@ -181,7 +181,7 @@ void strip2RainbowRiver(){
 void stripStatic(){
   
     for (int i = 0; i < STRIP_LED_NUM; i++){
-    led1[i].setRGB(RGB_R[0], RGB_G[0], RGB_B[0]);  
+    led1[i].setRGB(intData[6], intData[7], intData[8]);  
     FastLED.show();
      // delay(30); // FPS
     }
@@ -191,7 +191,7 @@ void stripStatic(){
 void stripStatic2(){
   
     for (int i = 0; i < STRIP_LED_NUM2; i++){
-    led2[i].setRGB(RGB_R[1], RGB_G[1], RGB_B[1]);  
+    led2[i].setRGB(intData[9], intData[10], intData[11]);  
     FastLED.show();
     // delay(30); // FPS
     return;
@@ -223,7 +223,7 @@ void ringRainbow(){
 void ringStatic(){
   
     for (int i = 0; i < RING_LED_NUM; i++){
-      ring1[i].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Присваиваем статическое значение
+      ring1[i].setRGB(intData[12], intData[13], intData[14]); // Присваиваем статическое значение
       FastLED.show();
       //delay(30); // FPS
     
@@ -236,7 +236,7 @@ void ringTemp(){
   val = constrain(val, CS_TEMP_MIN, CS_TEMP_MAX); // Ограничиваем
   map(val, CS_TEMP_MIN, CS_TEMP_MAX, 0, ARGB_round); // Конвертируем диапазон
   for(int led = 0; led < val; led++) { 
-            ring1[led].setRGB(RGB_R_R, RGB_G_R, RGB_B_R); // Цикл
+            ring1[led].setRGB(intData[12], intData[13], intData[14]); // Цикл
   };
   FastLED.show();
     // delay(30); // FPS
@@ -301,15 +301,15 @@ void strip2(){
 
 
  void brightnessVoid(){
-    if(brightnessStatus == 0){
+    if(intData[15] == 0){
        FastLED.setBrightness(map(analogRead(PHOTO), 0, 1023, 0, 100));
          
-    }else if(brightnessStatus == 1){
-      FastLED.setBrightness(brightness);
+    }else if(intData[15] == 1){
+      FastLED.setBrightness(intData[16]);
       Serial.print("BTSL");
-      Serial.println(brightness);
+      Serial.println(intData[16]);
         Serial.print("BTS");
-        Serial.println(brightnessStatus);
+        Serial.println(intData[15]);
     }
      // Уровень яркости
     
@@ -335,48 +335,52 @@ void loop() {
 parsingStream((int*)&intData);
 if (dataReady()) {
   Serial.println("SUKA");
-StripStatus[0] == constrain(intData[0], 0, 1);
-  StripStatus[1] == constrain(intData[1], 0, 1);
-  RingStatus == constrain(intData[2], 0, 1);
-  stripMode[0] == constrain(intData[3], 0, 2);
-  stripMode[1] == constrain(intData[4], 0, 2);
-  ringMode == constrain(intData[5], 0, 3);
-  RGB_R[0] == constrain(intData[6], 0, 255);
-  RGB_G[0] == constrain(intData[7], 0, 255);
-  RGB_B[0] == constrain(intData[8], 0, 255);
-  RGB_R[1] == constrain(intData[9], 0, 255);
-  RGB_G[1] == constrain(intData[10], 0, 255);
-  RGB_B[1] == constrain(intData[11], 0, 255);
-  RGB_R_R == constrain(intData[12], 0, 255);
-  RGB_G_R == constrain(intData[13], 0, 255);
-  RGB_B_R == constrain(intData[14], 0, 255);
-  brightnessStatus == constrain(intData[15], 0, 1);
-  brightness == constrain(intData[16], 0, 100);
+  intData[0] == constrain(intData[0], 0, 1); // лента 1 статус
+  intData[1] == constrain(intData[1], 0, 1); // лента 2 статус
+  intData[2] == constrain(intData[2], 0, 1); // кольцо статус
+  intData[3] == constrain(intData[3], 0, 2); // лента 1 режим
+  intData[4] == constrain(intData[4], 0, 2); // лента 2 режим
+  intData[5] == constrain(intData[5], 0, 3); // кольцо режим
+  intData[6] == constrain(intData[6], 0, 255); // Лента 1 R
+  intData[7] == constrain(intData[7], 0, 255); // Лента 1 G
+  intData[8] == constrain(intData[8], 0, 255); // Лента 1 B
+  intData[9] == constrain(intData[9], 0, 255); // Лента 2 R
+  intData[10] == constrain(intData[10], 0, 255); // Лента 2 G
+  intData[11] == constrain(intData[11], 0, 255); // Лента 2 B
+  intData[12] == constrain(intData[12], 0, 255); // Кольцо R
+  intData[13] == constrain(intData[13], 0, 255); // Кольцо G
+  intData[14] == constrain(intData[14], 0, 255); // Кольцо B
+  intData[15] == constrain(intData[15], 0, 1); // Яркость режим
+  intData[16] == constrain(intData[16], 0, 100); // Яркость уровень
 }
-  }
+}
 // Устанавливаем Яркость
   brightnessVoid();
  
 //---------------------------------
 
- if(StripStatus[0] == true && stripMode[0] == 1) stripStatic();
+ if(intData[0] == 0 && intData[3] == 1) stripStatic();
 
- if(StripStatus[0] == true && stripMode[0] == 0) stripRainbow();
+ if(intData[0] == 1 && intData[3] == 0) stripRainbow();
 
- //if(StripStatus[0] == true && stripMode[0] == 2) 
- stripRaindowRiver();
+ if(intData[0] == 1 && intData[3] == 2) stripRaindowRiver(); 
 
- if(StripStatus[1] == true && stripMode[1] == 1 ) stripStatic2();
 
- if(StripStatus[1] == true && stripMode[1] == 0) stripRainbow2();
+ if(intData[1] == 1 && intData[4] == 1) stripStatic2();
 
- if(StripStatus[1] == true && stripMode[1] == 2 ) strip2RainbowRiver();
+ if(intData[1] == 1 && intData[4] == 0) stripRainbow2();
 
- if(RingStatus == true && ringMode == 1) ringStatic();
+ if(intData[1] == 1 && intData[4] == 2) strip2RainbowRiver();
 
- if(RingStatus == true && ringMode == 0) ringRainbow();
+ if(intData[2] == 1 && intData[5] == 1) ringStatic();
 
-if(RingStatus == true && ringMode == 2) ringRaindowRiver();
+ if(intData[2] == 1 && intData[5] == 0) ringRainbow();
+
+ if(intData[2] == 1 && intData[5] == 2) ringRaindowRiver();
+
+ if(intData[2] == 1 && intData[5] == 3) ringTemp();
+
+
 
 
 
