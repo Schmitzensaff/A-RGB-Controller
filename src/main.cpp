@@ -1,8 +1,8 @@
-// Release 1.1
-// Перешел на microLed от AlexGyver
-// Убрал гирлянду. Ущербно выглядит.
-// Единственный минус - наводки на ленту при выводе. Беда с библой
-// Осталось сделать демона для удобной работы.
+// Alpha 1.2
+// Переход на Adafruit Neopixel
+// Цифровые наводки исправлены.
+// Беда со скоростью. При включении на полную катушку скорость обновления очень низкая
+// Закончил на 123 строке.
 //------------Настройки------------------
 #define RESIST_10K 10000 // Вместо 10000 указ. точн. сопр. Резистора
 #define RESIST_BASE 10000   // сопротивление при TEMP_BASE градусах по Цельсию (Ом)
@@ -15,13 +15,10 @@
 #define RING_LED_TYPE LED_WS2812 // тип светодиодов в кольцах
 #define CS_TEMP_MIN 25 // Минимальная темп в корпусе
 #define CS_TEMP_MAX 60 // Максимальная темп в корпусе
-#define PARSE_AMOUNT 17         // число значений в массиве, который хотим получить
-#define COLOR_DEBTH 3 // разрядность
-#define CRT_PGM // коррекция по табличке
-#define LED_TIMER 80
-#define LED2_TIMER 80
-#define RING_TIMER 80
-#define LED_RAINBOW_DELAY 500
+#define PARSE_AMOUNT 17 // число значений в массиве, который хотим получить
+#define ST1_RR_TIMER_CONST 10 // Таймер Рад. Строки 1 ленты
+#define ST2_RR_TIMER_CONST 20 // Таймер Рад. Строки 2 ленты
+#define RG_RR_TIMER_CONST 20 // Таймер Рад. Строки колец
 //---------------------------------------
 
 
@@ -39,20 +36,24 @@
 
 //---------------Библы-------------------
 #include <Arduino.h> // Стандартка для пердуины
-#include <microLED.h>
 #include <GParsingStream.h>
+#include <Adafruit_NeoPixel.h>
 //---------------------------------------
 
-microLED < STRIP_LED_NUM, LED_PIN, -1, STRIP_LED_TYPE, ORDER_GRB > led1;
-microLED < STRIP_LED_NUM2, LED2_PIN, -1, STRIP_LED_TYPE, ORDER_GRB > led2;
-microLED < RING_LED_NUM, ARGB_round, -1, RING_LED_TYPE, ORDER_GRB > ring;
-
+Adafruit_NeoPixel led1 = Adafruit_NeoPixel(STRIP_LED_NUM, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel led2 = Adafruit_NeoPixel(STRIP_LED_NUM2, LED2_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel ring = Adafruit_NeoPixel(RING_LED_NUM, ARGB_round, NEO_GRB + NEO_KHZ800);
 int x = 0;
 int intData[PARSE_AMOUNT];     // массив численных значений после парсинга
 
+
+//--------------Таймеры------------------
 uint32_t ledTimer;
 uint32_t parserTimer = 0;
-
+uint32_t ST1_RR_TIMER; // Таймер Рад. Строки 1 ленты
+uint32_t ST2_RR_TIMER; // Таймер Рад. Строки 2 ленты
+uint32_t RG_RR_TIMER; // Таймер Рад. Строки колец
+//---------------------------------------
 //----------------------------------
 // Термистор. Особо не суетить. Работать через getThermTemp(analogRead(THERM))
 float getThermTemp(int resistance){
@@ -90,24 +91,69 @@ void ringShow(){
 // Радужный поток
 byte counter;
 byte counter2;
+byte * Wheel(byte WheelPos) {
+  static byte c[3];
+ 
+  if(WheelPos < 85) {
+   c[0]=WheelPos * 3;
+   c[1]=255 - WheelPos * 3;
+   c[2]=0;
+  } else if(WheelPos < 170) {
+   WheelPos -= 85;
+   c[0]=255 - WheelPos * 3;
+   c[1]=0;
+   c[2]=WheelPos * 3;
+  } else {
+   WheelPos -= 170;
+   c[0]=0;
+   c[1]=WheelPos * 3;
+   c[2]=255 - WheelPos * 3;
+  }
+
+  return c;
+}
+
 void stripRaindowRiver(){
-    for (int i = 0; i < STRIP_LED_NUM; i++) {
-      led1.set(i, mWheel8(counter + i * 255 / STRIP_LED_NUM));   // counter смещает цвет
+  byte *c;
+  uint16_t i, j;
+
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+  Serial.println("S1RRF1B");
+  if(millis() - ST1_RR_TIMER >= ST1_RR_TIMER_CONST){
+    ST1_RR_TIMER = millis();
+    for(i=0; i< STRIP_LED_NUM2; i++) {
+      Serial.println("S1RRF2B");
+      c=Wheel(((i * 256 / STRIP_LED_NUM2) + j) & 255);
+      led1.setPixelColor(i, *c, *(c+1), *(c+2));
+      Serial.println("S1RRF2E");
+    }
+    strip1Show();
   }
-  counter += 3;   // counter имеет тип byte и при достижении 255 сбросится в 0
-  delay(30);
-  }
+    Serial.println("S1RRF1E");
+    }
+    
+  
+}
+
+
+  
   
 //}
 
 void strip2RainbowRiver(){
-  
-   for (int i = 0; i < STRIP_LED_NUM2; i++) {
-      led2.set(i, mWheel8(counter2 + i * 255 / STRIP_LED_NUM2));   // counter смещает цвет
-  }
-  counter2 += 3;   // counter имеет тип byte и при достижении 255 сбросится в 0
-  delay(30);
+  byte *c;
+  uint16_t i, j;
 
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< STRIP_LED_NUM; i++) {
+      c=Wheel(((i * 256 / STRIP_LED_NUM) + j) & 255);
+      led2.setPixelColor(i, *c, *(c+1), *(c+2));
+      
+    }
+    strip2Show();
+    
+    }
+    
 }
 
 
@@ -115,13 +161,14 @@ void strip2RainbowRiver(){
 // Статической режим
 void stripStatic(){
     Serial.println("SUKA");
-    led1.fill(mRGB(intData[6], intData[7], intData[8]));
-    
+    led1.fill(intData[6], intData[7], intData[8]);  //intData[6], intData[7], intData[8]);
     Serial.println("BLYAT");
+    led1.show();
   
 }
 void stripStatic2(){
-    led2.fill(mRGB(intData[9], intData[10], intData[11]));
+    led2.fill(intData[9], intData[10], intData[11]);
+    led2.show();
   
 }
 //-----------------------
@@ -132,7 +179,7 @@ void stripStatic2(){
 
 // Статической режим
 void ringStatic(){
-  ring.fill(mRGB(intData[12], intData[13], intData[14]));
+  ring.fill(intData[12], intData[13], intData[14]);
   ring.show();
 }
 // Температурный режим
@@ -141,7 +188,7 @@ void ringTemp(){
   val = constrain(val, CS_TEMP_MIN, CS_TEMP_MAX); // Ограничиваем
   map(val, CS_TEMP_MIN, CS_TEMP_MAX, 0, ARGB_round); // Конвертируем диапазон
   for(int led = 0; led < val; led++) { 
-            ring.set(led, mRGB(intData[12], intData[13], intData[14])); // Цикл
+            ring.setPixelColor(led, intData[12], intData[13], intData[14]); // Цикл
   };
   ring.show();
     // delay(30); // FPS
@@ -150,53 +197,21 @@ void ringTemp(){
  
 byte counter3;
 void ringRaindowRiver(){
-  
-    for (int i = 0; i < ARGB_round; i++) {
-      ring.set(i, mWheel8(counter3 + i * 255 / ARGB_round));   // counter смещает цвет
-  }
-  counter3 += 3;   // counter имеет тип byte и при достижении 255 сбросится в 0
-  delay(30); 
-    // delay(5); 
+   byte *c;
+  uint16_t i, j;
+
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< RING_LED_NUM; i++) {
+      c=Wheel(((i * 256 / RING_LED_NUM) + j) & 255);
+      ring.setPixelColor(i, *c, *(c+1), *(c+2));
+      
+    }
+    ringShow();
+    
+    }
+    
   
 }
-//------------------------------
-
-
-// Даем данные на ленты
-/*void strip1(){
-  if (StripStatus[0] == true && millis() - strip1ModeTimer >= 0){
-    strip1ModeTimer = millis();
-  switch(stripMode[0]){ // Выбор режима работы
-    case 0: stripRainbow(random(255), random(255), random(255), 0); //Отправляем значения
-    break;
-    case 1: stripStatic();
-    break;
-    case 2: stripRaindowRiver();
-    default: delay(0);
-  }
-  }else{delay(0);}
-  return;
-}
-void strip2(){
-  if (StripStatus[1] == true) {
-  switch(stripMode[1]){ // Выбор режима работы
-    case 0: stripRainbow(random(255), random(255), random(255), 0); //Отправляем значения
-    break;
-    case 1: stripStatic();
-    break;
-    case 2: strip2RainbowRiver();
-    default: delay(0);
-  
-  }
-  }else{delay(0);}
-  return;
-}*/
-
-//-----------------------------
-
-
-// Даем команды ленте и кольцам
-
 //=================================
 //---------------------------------
 //=================================
@@ -223,7 +238,9 @@ void strip2(){
 void setup() {
   Serial.begin(9600);
   Serial.println("Connection Successful");
-  
+  led1.begin();
+  led2.begin();
+  ring.begin();
 
   // FastLED.addLeds<LMUSIC_LED_TYPE,ARGB_LMusic, GRB>(led3, LMUSIC_LED_NUM); // Инициализация светомузыки(Вроде)
   
@@ -236,7 +253,7 @@ void loop() {
   
 parsingStream((int*)&intData);
 if (dataReady()) {
-  Serial.println("SUKA");
+  Serial.println("Correct Parse.");
   intData[0] == constrain(intData[0], 0, 1); // лента 1 статус
   intData[1] == constrain(intData[1], 0, 1); // лента 2 статус
   intData[2] == constrain(intData[2], 0, 1); // кольцо статус
@@ -257,14 +274,14 @@ if (dataReady()) {
 }
 }
 // Устанавливаем Яркость
-  brightnessVoid();
+  //brightnessVoid();
+  led1.setBrightness(50);
  
 //---------------------------------
 
  if(intData[0] == 1 && intData[3] == 1) stripStatic();
 
  if(intData[0] == 1 && intData[3] == 0) stripRaindowRiver(); 
-
 
  if(intData[1] == 1 && intData[4] == 1) stripStatic2();
 
@@ -276,12 +293,7 @@ if (dataReady()) {
 
  if(intData[2] == 1 && intData[5] == 2) ringTemp();
  
- if(millis() - ledTimer >= 100){
-   strip1Show();
-   strip2Show();
-   ringShow();
-   ledTimer == millis();
- }
+ 
  //-----------------------------
 
 }
