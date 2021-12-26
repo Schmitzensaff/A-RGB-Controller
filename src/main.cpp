@@ -24,9 +24,9 @@
 
 //--------------Пины---------------------
 #define THERM A0 //Вместо A0 указ. анал.пин
-#define LED_PIN 5 // Пин 1 ленты
+#define LED_PIN 8 // Пин 1 ленты
 #define LED2_PIN 6 // Пин 2 ленты
-#define ARGB_round 8 // Пин колец
+#define ARGB_round 5 // Пин колец
 #define PHOTO A1 // Пин фоторез.
 //---------------------------------------
 
@@ -118,18 +118,12 @@ void stripRaindowRiver(){
   uint16_t i, j;
 
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
-  Serial.println("S1RRF1B");
-  if(millis() - ST1_RR_TIMER >= ST1_RR_TIMER_CONST){
-    ST1_RR_TIMER = millis();
-    for(i=0; i< STRIP_LED_NUM2; i++) {
-      Serial.println("S1RRF2B");
+    for(i=0; i < STRIP_LED_NUM2; i++) {
       c=Wheel(((i * 256 / STRIP_LED_NUM2) + j) & 255);
       led1.setPixelColor(i, *c, *(c+1), *(c+2));
-      Serial.println("S1RRF2E");
     }
     strip1Show();
-  }
-    Serial.println("S1RRF1E");
+    delay(20);
     }
     
   
@@ -145,13 +139,13 @@ void strip2RainbowRiver(){
   uint16_t i, j;
 
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
-    for(i=0; i< STRIP_LED_NUM; i++) {
+    for(i=0; i< STRIP_LED_NUM2; i++) {
       c=Wheel(((i * 256 / STRIP_LED_NUM) + j) & 255);
       led2.setPixelColor(i, *c, *(c+1), *(c+2));
       
     }
     strip2Show();
-    
+    delay(20);
     }
     
 }
@@ -207,7 +201,7 @@ void ringRaindowRiver(){
       
     }
     ringShow();
-    
+    delay(20);
     }
     
   
