@@ -10,7 +10,12 @@
 #include <GParsingStream.h>
 CRGB st1[ST1_NUMLED];
 CRGB st2[ST2_NUMLED];
-int intData[PARSE_AMOUNT];
+int intData[PARSE_AMOUNT] = {
+  0, 0,
+  0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  1, 0};
 byte counter = 0;
 byte counter2 = 0;
 
@@ -106,6 +111,19 @@ void ST2RS(int SpeedDelay){
     vTaskDelay(SpeedDelay);
 }
 }
+
+void ST2RnS(int SpeedDelay){
+  for(uint16_t i=0; i<ST2_NUMLED; i++) {
+      st2[i].setRGB(intData[7], intData[8], intData[9]);
+      FastLED.show();
+      vTaskDelay(SpeedDelay);
+  }
+  for(uint16_t i=0; i<ST2_NUMLED; i++) {
+      st2[i].setRGB(0, 0, 0);
+      FastLED.show();
+      vTaskDelay(SpeedDelay);
+  }
+}
 void ST1STC(){
   for(int i = 0; i < ST1_NUMLED; i++){
     st1[i].setRGB(intData[4], intData[5], intData[6]);
@@ -129,6 +147,7 @@ void st2Task(void *pvParameters){
   while(1){
     if(intData[1] == 1 && intData[3] == 0) ST2RS(0);
     if(intData[1] == 1 && intData[3] == 1) ST2STC();
+    if(intData[1] == 1 && intData[3] == 2) ST2RnS(5);
     
   }
 }
