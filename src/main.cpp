@@ -1,6 +1,12 @@
 /*
-A-RGB Controller v. 2.3 beta
+A-RGB Controller v. 2.4
 Породил сие безобразие: Schmitzensaff
+
+Изменения:
+- Доделан режим RS
+- Немного переработан пакет
+- Сьездил в Татарстан
+Даже не знаю, что важнее
 
 Данные отправляются в порт на скорости 9600 бод, в виде пакета типа
 "$data0 data1 data2 data3 data4 data5...... data11;"
@@ -9,11 +15,13 @@ A-RGB Controller v. 2.3 beta
 1 - Вкл/выкл вторая лента(1 или 0 соответственно)
 2 - Режим первой ленты (1 - статика, 2 - RnS, 3 - CLD)
 3 - Режим второй ленты (1 - статика, 2 - RnS, 3 - CLD)
-4, 5, 6 - для первой ленты R, G, B соответственно(от 0 до 255)
-7, 8, 9 - для второй ленты R, G, B соответственно(от 0 до 255)
-10 - Режим управления яркостью(0 - фоторезистор, 1 - число из 11) (НЕ РЕАЛИЗОВАНО)
+4, 5, 6 - для первой ленты R, G, B соответственно(от 0 до 255) (Элемент 4 - Регулировать скорость в режиме RS 1 ленты)
+7, 8, 9 - для второй ленты R, G, B соответственно(от 0 до 255) (Элемент 7 - Регулировать скорость в режиме RS 2 ленты)
+10 - Отладочная ячейка (Любое число от 0 до 255)
 11 - Уровень яркости(от 0 до 100)
 Если при исполнении кода на вас случайно упадёт дирижабль - звать Бригадира Пожарных
+
+ПЫ.СЫ. Я наконец-то научился кодить. 
 */
 
 
@@ -31,6 +39,7 @@ A-RGB Controller v. 2.3 beta
 #define ST2_LEDPIN 6 // Пин второй ленты
 #define PARSE_AMOUNT 12 // Размер массива с данными
 #define PHOTO A1 // Пин фоторезистора(НЕ РЕАЛИЗОВАНО)
+
 
 #include <FastLED.h> // Библа Светодиодов
 #include <GParsingStream.h> //Библа парса
@@ -52,49 +61,6 @@ const int CLDarray[6] = { // массив для режима CLD
 };
 uint32_t st1Timer = 0;
 uint32_t st2Timer = 0;
-
-/*byte * Wheel(byte WheelPos) { // Задел на режим RS(НЕ РЕАЛИЗОВАНО)
-  static byte c[3];
- 
-  if(WheelPos < 85) {
-   c[0]=WheelPos * 3;
-   c[1]=255 - WheelPos * 3;
-   c[2]=0;
-  } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   c[0]=255 - WheelPos * 3;
-   c[1]=0;
-   c[2]=WheelPos * 3;
-  } else {
-   WheelPos -= 170;
-   c[0]=0;
-   c[1]=WheelPos * 3;
-   c[2]=255 - WheelPos * 3;
-  }
-
-  return c;
-}
-byte * Wheel2(byte WheelPos) {
-  static byte c[3];
- 
-  if(WheelPos < 85) {
-   c[0]=WheelPos * 3;
-   c[1]=255 - WheelPos * 3;
-   c[2]=0;
-  } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   c[0]=255 - WheelPos * 3;
-   c[1]=0;
-   c[2]=WheelPos * 3;
-  } else {
-   WheelPos -= 170;
-   c[0]=0;
-   c[1]=WheelPos * 3;
-   c[2]=255 - WheelPos * 3;
-  }
-
-  return c;
-}*/
 void setup(){ // сетуп
     Serial.begin(9600);
     #if (DEBUG == 1)
@@ -120,7 +86,7 @@ void setup(){ // сетуп
                 }
                 
             }     
-    Serial.println("A-RGB-Controller v.2.3 beta");
+    Serial.println("A-RGB-Controller v.2.4");
   st1cont = &FastLED.addLeds<WS2812, ST1_LEDPIN, GRB>(st1, ST1_NUMLED).setCorrection( TypicalLEDStrip);;
   st2cont = &FastLED.addLeds<WS2812, ST2_LEDPIN, GRB>(st2, ST2_NUMLED).setCorrection( TypicalLEDStrip);;
 }
@@ -134,25 +100,14 @@ void setup(){ // сетуп
       FastLED.setBrightness(dataArray[11]);
     }// Уровень яркости
    }  */ 
-/*void ST1RS(){ // Задел на режим RS для первой ленты
+void ST1RS(){ // Задел на режим RS для первой ленты
   #if (DEBUG == 1)
   Serial.println("ST1RS");
   #endif
- static byte *c;
- static uint16_t i = 0;
- static uint16_t j = 0;
-  c=Wheel(((i * 256 / ST1_NUMLED) + j) & 255);
-      st1[i].setRGB(*c, *(c+1), *(c+2));
-      i++;
-      if(i >= ST1_NUMLED){ // Ленивые голубцы
-        j++;
-        i = 0;
-        st1cont->showLeds(dataArray[11]);
-      }
-      if(j >= 256*5){ // Ленивые голубцы
-        j = 0;
-      }
-}*/
+       uint8_t thisHue = beat8(dataArray[4],255);
+      fill_rainbow(st1, ST1_NUMLED, thisHue, 10);
+      st1cont->showLeds(dataArray[11]);
+}
 void ST1STC(){ // статический режим (STC) для первой ленты
   #if (DEBUG == 1)
   Serial.println("ST1STC");
@@ -255,25 +210,14 @@ if(switcher == 1){ // если флаг поднят
       }
       }
 }
-/*void ST2RS(){ // Задел на будущее
+void ST2RS(){ // Задел на будущее
   #if (DEBUG == 1)
   Serial.println("ST2RS");
   #endif
- static  byte *c;
- static uint16_t i = 0;
- static uint16_t j = 0;
-  c=Wheel2(((i * 256 / ST2_NUMLED) + j) & 255);
-      st1[i].setRGB(*c, *(c+1), *(c+2));
-      i++;
-      if(i >= ST2_NUMLED){ // Ленивые голубцы
-        j++;
-        i = 0;
-        st2cont->showLeds(dataArray[11]);
-      }
-      if(j >= 256*5){
-        j = 0;
-      }
-}*/
+      uint8_t thisHue = beat8(dataArray[7],255);
+      fill_rainbow(st2, ST2_NUMLED, thisHue, 10);
+      st2cont->showLeds(dataArray[11]);
+}
 void ST2CLD(){ // Режим CLD для второй ленты
   #if (DEBUG == 1)
   Serial.println("ST2CLD");
@@ -303,7 +247,7 @@ void st1task(){ // Выборка заданий для первой ленты
   #if (DEBUG == 1)
   Serial.println("st1task");
   #endif
-   // if(dataArray[0] == 1 && dataArray[2] == 0) ST1RS(); // НЕ РЕАЛИЗОВАНО
+    if(dataArray[0] == 1 && dataArray[2] == 0) ST1RS(); 
     if(dataArray[0] == 1 && dataArray[2] == 1) ST1STC();
     if(dataArray[0] == 1 && dataArray[2] == 2) ST1RnS();  
     if(dataArray[0] == 1 && dataArray[2] == 3) ST1CLD();
@@ -312,7 +256,7 @@ void st2task(){ // Выборка заданий для второй ленты
   #if (DEBUG == 1)
   Serial.println("st2task");
   #endif
-   // if(dataArray[1] == 1 && dataArray[3] == 0) ST2RS(); // НЕ РЕАЛИЗОВАНО
+    if(dataArray[1] == 1 && dataArray[3] == 0) ST2RS(); 
     if(dataArray[1] == 1 && dataArray[3] == 1) ST2STC();
     if(dataArray[1] == 1 && dataArray[3] == 2) ST2RnS();
     if(dataArray[1] == 1 && dataArray[3] == 3) ST2CLD();
@@ -323,7 +267,7 @@ void loop(){
       #endif
         parsingStream((int*)&dataArray); // Принимаем пакет, пишем в массив dataArray
     if(dataReady()){// Если данные приняты...
-      Serial.println("Command accepted");
+      Serial.println("Command accepted"); 
     for(int i = 0, j = 0; i < PARSE_AMOUNT; i++, j += 2){ // Голубцы. 
       EEPROM.put(j, dataArray[i]); // ....Заносим данные в EEPROM
     }
